@@ -3,21 +3,19 @@
 # Author: Anthony Gargiulo (anthony@agargiulo.com)
 # Created Fri Jun 15 2012
 
-from pygithub3 import Github
+import pygithub3
 from argparse import ArgumentParser
 import os
 import sys
 import subprocess
-
-def run(cmd):
-    stdout, stderr = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
-    return stdout.rstrip()
 
 def main():
    # A sane way to handle command line args.
    # Now actually store the args
    parser = init_parser()
    args = parser.parse_args()
+   args.backupdir = args.backupdir.format(username=args.username)
+   args.gistsdir = args.gistsdir.format(username=args.username, backupdir=args.backupdir)
 
    try:
       user = run(['git', 'config', 'github.user'])
@@ -42,14 +40,22 @@ def main():
       user = None
 
    # Make the connection to Github here.
-   gh = Github(login=user, password=password, token=token)
+   gh = pygithub3.Github(login=user, password=password, token=token)
 
-   # Get all of the given user's repos
-   repos = gh.repos.list_by_org(args.username).all()
+   # Get all of the given user/org's repos
+   try:
+      repos = gh.repos.list_by_org(args.username).all()
+   except pygithub3.exceptions.NotFound:
+      repos = None
+
    if not repos:
       repos = gh.repos.list(args.username).all()
+
    for repo in repos:
-      process_repo(repo, args)
+      clone(repo.clone_url, os.path.join(args.backupdir, repo.name), name=repo.full_name)
+
+   for gist in gh.gists.list(args.username).all():
+      clone(gist.git_pull_url, os.path.join(args.gistsdir, gist.id), quiet=args.cron)
 
 def init_parser():
    """
@@ -58,28 +64,41 @@ def init_parser():
    parser = ArgumentParser(
    description="makes a backup of all of a github user's repositories")
    parser.add_argument("username", help="A Github username, default to GITHUB_USER or LOGNAME")
-   parser.add_argument("backupdir",
-      help="The folder where you want your backups to go")
+   parser.add_argument("-b", "--backupdir", default="./{username}",
+         help="The folder where you want your backup repos to go (Default: %(default)s)")
+   parser.add_argument("-g", "--gistsdir", default="{backupdir}/gists",
+         help="The folder where you want your gist backup repos to go (Default: %(default)s)")
    parser.add_argument("-c","--cron", help="Use this when running from a cron job",
       action="store_true")
    return parser
 
 
-def process_repo(repo, args):
-   if args.cron:
+def run(cmd):
+    stdout, stderr = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
+    return stdout.rstrip()
+
+
+def clone(url, destdir, quiet=False, name=None):
+   if name is None:
+      name = os.path.basename(url)
+
+   if quiet:
       git_args = "-q"
    else:
+      print("Processing {}".format(name))
       git_args = ""
 
-   if not args.cron:
-      print("Processing repo: {}".format(repo.full_name))
+   if os.path.exists(destdir):
+      if not quiet:
+         print("Updating existing repo at {}".format(destdir))
+      os.system('cd {} && git pull {}'.format(destdir, git_args))
+   else:
+      if not quiet:
+         print("Cloning {} to {}".format(url, destdir))
+      os.system('git clone {} {} {}'.format(git_args, url, destdir))
 
-   if os.access('{}/{}/.git'.format(args.backupdir,repo.name),os.F_OK):
-      if not args.cron:
-         print("Repo already exists, let's try to update it instead")
-      os.system('cd {}/{};git pull {}'.format(args.backupdir, repo.name, git_args))
-   else: # Repo doesn't exist, let's clone it
-      os.system('git clone {} {} {}/{}'.format(git_args, repo.clone_url, args.backupdir, repo.name))
 
 if __name__ == "__main__":
    main()
+
+# vim: set et fenc=utf-8 sts=3 sw=3 :

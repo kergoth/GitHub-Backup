@@ -20,17 +20,23 @@ def main():
    try:
       user = run(['git', 'config', 'github.user'])
    except Exception:
-      user = os.environ.get('GITHUB_USER', os.environ.get('LOGNAME'))
+      user = None
 
    try:
       password = run(['git', 'config', 'github.password'])
    except Exception:
-      password = os.environ.get('GITHUB_PASSWORD')
+      password = None
 
    try:
       token = run(['git', 'config', 'github.token'])
    except Exception:
       token = None
+
+   if not user:
+      user = os.environ.get('GITHUB_USER', os.environ.get('GITHUB_USER'))
+
+   if not password:
+      password = os.environ.get('GITHUB_PASSWORD', os.environ.get('GITHUB_PASSWORD'))
 
    if not user:
       sys.exit("Unable to determine github username, please set github.user or export GITHUB_USER")
@@ -52,10 +58,10 @@ def main():
       repos = gh.repos.list(args.username).all()
 
    for repo in repos:
-      clone(repo.clone_url, os.path.join(args.backupdir, repo.name), name=repo.full_name)
+      clone(repo.clone_url, os.path.join(args.backupdir, repo.name), name=repo.full_name, mirror=args.mirror)
 
    for gist in gh.gists.list(args.username).all():
-      clone(gist.git_pull_url, os.path.join(args.gistsdir, gist.id), quiet=args.cron)
+      clone(gist.git_pull_url, os.path.join(args.gistsdir, gist.id), quiet=args.cron, mirror=args.mirror)
 
 def init_parser():
    """
@@ -70,6 +76,8 @@ def init_parser():
          help="The folder where you want your gist backup repos to go (Default: %(default)s)")
    parser.add_argument("-c","--cron", help="Use this when running from a cron job",
       action="store_true")
+   parser.add_argument("-m","--mirror", help="Use the --mirror option when cloning",
+      action="store_true")
    return parser
 
 
@@ -78,7 +86,7 @@ def run(cmd):
     return stdout.rstrip()
 
 
-def clone(url, destdir, quiet=False, name=None):
+def clone(url, destdir, quiet=False, name=None, mirror=False):
    if name is None:
       name = os.path.basename(url)
 
@@ -87,6 +95,9 @@ def clone(url, destdir, quiet=False, name=None):
    else:
       print("Processing {}".format(name))
       git_args = ""
+
+   if mirror:
+      git_args += " --mirror"
 
    if os.path.exists(destdir):
       if not quiet:
@@ -97,6 +108,10 @@ def clone(url, destdir, quiet=False, name=None):
          print("Cloning {} to {}".format(url, destdir))
       os.system('git clone {} {} {}'.format(git_args, url, destdir))
 
+   if mirror:
+      if not quiet:
+         print("Updating server info in {}".format(destdir))
+      os.system('git update-server-info')
 
 if __name__ == "__main__":
    main()

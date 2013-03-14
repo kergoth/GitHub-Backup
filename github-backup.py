@@ -117,7 +117,7 @@ def clone(url, destdir, quiet=False, name=None, mirror=False):
    if mirror:
       if not quiet:
          print("Updating server info in %s" % (destdir))
-      os.system('git update-server-info')
+      os.system('cd %s && git update-server-info' % (destdir))
 
 if __name__ == "__main__":
    main()

@@ -127,6 +127,8 @@ def clone(url, destdir, quiet=False, name=None, mirror=False):
 
    if mirror:
       git_args += " --mirror"
+      if not destdir.endswith('.git'):
+         destdir += ".git"
 
    if os.path.exists(destdir):
       if not quiet:

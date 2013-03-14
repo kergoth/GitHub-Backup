@@ -99,16 +99,20 @@ def clone(url, destdir, quiet=False, name=None, mirror=False):
       git_args = ""
 
    if mirror:
-      git_args += " --mirror"
+      git_fetch_cmd = "fetch --all"
+      git_clone_cmd = "clone --mirror"
+   else:
+      git_fetch_cmd = "pull"
+      git_clone_cmd = "clone"
 
    if os.path.exists(destdir):
       if not quiet:
          print("Updating existing repo at {}".format(destdir))
-      os.system('cd {} && git pull {}'.format(destdir, git_args))
+      os.system('cd {} && git {} {}'.format(destdir, git_fetch_cmd, git_args))
    else:
       if not quiet:
          print("Cloning {} to {}".format(url, destdir))
-      os.system('git clone {} {} {}'.format(git_args, url, destdir))
+      os.system('git {} {} {} {}'.format(git_clone_cmd, git_args, url, destdir))
 
    if mirror:
       if not quiet:

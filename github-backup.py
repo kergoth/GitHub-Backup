@@ -20,17 +20,23 @@ def main():
    try:
       user = run(['git', 'config', 'github.user'])
    except Exception:
-      user = os.environ.get('GITHUB_USER', os.environ.get('LOGNAME'))
+      user = None
 
    try:
       password = run(['git', 'config', 'github.password'])
    except Exception:
-      password = os.environ.get('GITHUB_PASSWORD')
+      password = None
 
    try:
       token = run(['git', 'config', 'github.token'])
    except Exception:
       token = None
+
+   if not user:
+      user = os.environ.get('GITHUB_USER', os.environ.get('GITHUB_USER'))
+
+   if not password:
+      password = os.environ.get('GITHUB_PASSWORD', os.environ.get('GITHUB_PASSWORD'))
 
    if not user:
       sys.exit("Unable to determine github username, please set github.user or export GITHUB_USER")

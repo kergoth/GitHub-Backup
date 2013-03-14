@@ -95,7 +95,7 @@ def clone(url, destdir, quiet=False, name=None, mirror=False):
    if quiet:
       git_args = "-q"
    else:
-      print("Processing {}".format(name))
+      print("Processing %s" % (name))
       git_args = ""
 
    if mirror:
@@ -107,16 +107,16 @@ def clone(url, destdir, quiet=False, name=None, mirror=False):
 
    if os.path.exists(destdir):
       if not quiet:
-         print("Updating existing repo at {}".format(destdir))
-      os.system('cd {} && git {} {}'.format(destdir, git_fetch_cmd, git_args))
+         print("Updating existing repo at %s" % (destdir))
+      os.system('cd %s && git %s %s' % (destdir, git_fetch_cmd, git_args))
    else:
       if not quiet:
-         print("Cloning {} to {}".format(url, destdir))
-      os.system('git {} {} {} {}'.format(git_clone_cmd, git_args, url, destdir))
+         print("Cloning %s to %s" % (url, destdir))
+      os.system('git %s %s %s %s' % (git_clone_cmd, git_args, url, destdir))
 
    if mirror:
       if not quiet:
-         print("Updating server info in {}".format(destdir))
+         print("Updating server info in %s" % (destdir))
       os.system('git update-server-info')
 
 if __name__ == "__main__":

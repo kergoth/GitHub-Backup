@@ -19,12 +19,12 @@ def main():
    try:
       user = run(['git', 'config', 'github.user'])
    except Exception:
-      user = os.environ.get('GITHUB_USER', os.environ.get('LOGNAME'))
+      user = None
 
    try:
       password = run(['git', 'config', 'github.password'])
    except Exception:
-      password = os.environ.get('GITHUB_PASSWORD')
+      password = None
 
    try:
       token = run(['git', 'config', 'github.token'])
@@ -32,10 +32,18 @@ def main():
       token = None
 
    if not user:
-      sys.exit("Unable to determine github username, please set github.user or export GITHUB_USER")
+      user = os.environ.get('GITHUB_USER', os.environ.get('GITHUB_USER'))
 
    if not password:
-      sys.stderr.write("Unable to determine github password. To access private repositories, set github.password or export GITHUB_PASSWORD\n")
+      password = os.environ.get('GITHUB_PASSWORD', os.environ.get('GITHUB_PASSWORD'))
+
+   if not user:
+      sys.exit("Unable to determine github username, please set github.user or export GITHUB_USER")
+
+   if not password and not token:
+      if not args.cron:
+         sys.stderr.write("Unable to determine github password or token. To access private repositories, set github.password, github.token or export GITHUB_PASSWORD\n")
+         sys.stderr.write("For help on oauth based token authentication see https://help.github.com/articles/creating-an-oauth-token-for-command-line-use\n")
       user = None
 
    gh = pygithub3.Github(login=user, password=password, token=token)
@@ -46,11 +54,11 @@ def main():
          repo_type = repo_type[6:]
          gistsdir = args.gistsdir.format(repo_type=repo_type)
          for repo in repos:
-            clone(repo.git_pull_url, os.path.join(gistsdir, repo.id), name=repo.id)
+            clone(repo.git_pull_url, os.path.join(gistsdir, repo.id), name=repo.id, mirror=args.mirror)
       else:
          repodir = args.repodir.format(repo_type=repo_type)
          for repo in repos:
-            clone(repo.clone_url, os.path.join(repodir, repo.name), name=repo.full_name)
+            clone(repo.clone_url, os.path.join(repodir, repo.name), name=repo.full_name, mirror=args.mirror)
 
 
 def get_repositories(github, auth_user, username):
@@ -83,7 +91,6 @@ def get_repositories(github, auth_user, username):
    return repositories
 
 
-
 def init_parser():
    """
    set up the argument parser
@@ -98,6 +105,8 @@ def init_parser():
          help="The folder where you want your backup repos to go (Default: %(default)s)")
    parser.add_argument("-g", "--gistsdir", default="./{username}/gists/{repo_type}",
          help="The folder where you want your backup gists to go (Default: %(default)s)")
+   parser.add_argument("-m","--mirror", help="Use the --mirror option when cloning",
+      action="store_true")
    return parser
 
 
@@ -106,7 +115,7 @@ def run(cmd):
     return stdout.rstrip()
 
 
-def clone(url, destdir, quiet=False, name=None):
+def clone(url, destdir, quiet=False, name=None, mirror=False):
    if name is None:
       name = os.path.basename(url)
 
@@ -115,6 +124,9 @@ def clone(url, destdir, quiet=False, name=None):
    else:
       print("Processing {}".format(name))
       git_args = ""
+
+   if mirror:
+      git_args += " --mirror"
 
    if os.path.exists(destdir):
       if not quiet:
@@ -125,6 +137,10 @@ def clone(url, destdir, quiet=False, name=None):
          print("Cloning {} to {}".format(url, destdir))
       os.system('git clone {} {} {}'.format(git_args, url, destdir))
 
+   if mirror:
+      if not quiet:
+         print("Updating server info in {}".format(destdir))
+      os.system('git update-server-info')
 
 if __name__ == "__main__":
    main()

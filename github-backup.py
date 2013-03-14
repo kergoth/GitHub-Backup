@@ -5,17 +5,16 @@
 
 import pygithub3
 from argparse import ArgumentParser
+from collections import defaultdict
 import os
 import sys
 import subprocess
 
 def main():
-   # A sane way to handle command line args.
-   # Now actually store the args
    parser = init_parser()
    args = parser.parse_args()
-   args.backupdir = args.backupdir.format(username=args.username)
-   args.gistsdir = args.gistsdir.format(username=args.username, backupdir=args.backupdir)
+   args.repodir = args.repodir.format(username=args.username, repo_type="{repo_type}")
+   args.gistsdir = args.gistsdir.format(username=args.username, repodir=args.repodir, repo_type="{repo_type}")
 
    try:
       user = run(['git', 'config', 'github.user'])
@@ -39,37 +38,66 @@ def main():
       sys.stderr.write("Unable to determine github password. To access private repositories, set github.password or export GITHUB_PASSWORD\n")
       user = None
 
-   # Make the connection to Github here.
    gh = pygithub3.Github(login=user, password=password, token=token)
+   repositories = get_repositories(gh, user, args.username)
 
-   # Get all of the given user/org's repos
+   for repo_type, repos in sorted(repositories.iteritems(), key=lambda i: i[0]):
+      if repo_type.startswith('gists/'):
+         repo_type = repo_type[6:]
+         gistsdir = args.gistsdir.format(repo_type=repo_type)
+         for repo in repos:
+            clone(repo.git_pull_url, os.path.join(gistsdir, repo.id), name=repo.id)
+      else:
+         repodir = args.repodir.format(repo_type=repo_type)
+         for repo in repos:
+            clone(repo.clone_url, os.path.join(repodir, repo.name), name=repo.full_name)
+
+
+def get_repositories(github, auth_user, username):
+   repositories = defaultdict(list)
+   repositories['watched'] = github.repos.watchers.list_repos(username).all()
+   if auth_user == username:
+      repositories['gists/starred'] = github.gists.starred().all()
+
+   for gist in github.gists.list(username).all():
+      if gist.public:
+         repositories['gists/public'].append(gist)
+      else:
+         repositories['gists/private'].append(gist)
+
    try:
-      repos = gh.repos.list_by_org(args.username).all()
+      repos = github.repos.list_by_org(username).all()
    except pygithub3.exceptions.NotFound:
-      repos = None
-
-   if not repos:
-      repos = gh.repos.list(args.username).all()
+      repos = github.repos.list(username).all()
 
    for repo in repos:
-      clone(repo.clone_url, os.path.join(args.backupdir, repo.name), name=repo.full_name)
+      if repo.fork:
+         repositories['forks'].append(repo)
+      elif repo.private:
+         repositories['private'].append(repo)
+      # elif repo.description and 'mirror' in repo.description:
+      #    repositories['mirrors'].append(repo)
+      else:
+         repositories['public'].append(repo)
 
-   for gist in gh.gists.list(args.username).all():
-      clone(gist.git_pull_url, os.path.join(args.gistsdir, gist.id), quiet=args.cron)
+   return repositories
+
+
 
 def init_parser():
    """
    set up the argument parser
    """
    parser = ArgumentParser(
-   description="makes a backup of all of a github user's repositories")
+      description="""Backup all of a github user's repositories and gists.
+
+   The 'dir' commandline options (-b, -g) may use 'username' and 'repo_type' patterns in braces. repo_type will resolve to 'public', 'private', 'forks', 'watched', or 'starred', as appropriate.""")
+
    parser.add_argument("username", help="A Github username, default to GITHUB_USER or LOGNAME")
-   parser.add_argument("-b", "--backupdir", default="./{username}",
+   parser.add_argument("-r", "--repodir", default="./{username}/{repo_type}",
          help="The folder where you want your backup repos to go (Default: %(default)s)")
-   parser.add_argument("-g", "--gistsdir", default="{backupdir}/gists",
-         help="The folder where you want your gist backup repos to go (Default: %(default)s)")
-   parser.add_argument("-c","--cron", help="Use this when running from a cron job",
-      action="store_true")
+   parser.add_argument("-g", "--gistsdir", default="./{username}/gists/{repo_type}",
+         help="The folder where you want your backup gists to go (Default: %(default)s)")
    return parser
 
 

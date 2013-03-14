@@ -41,8 +41,10 @@ def main():
    if not user:
       sys.exit("Unable to determine github username, please set github.user or export GITHUB_USER")
 
-   if not password:
-      sys.stderr.write("Unable to determine github password. To access private repositories, set github.password or export GITHUB_PASSWORD\n")
+   if not password and not token:
+      if not args.cron:
+         sys.stderr.write("Unable to determine github password or token. To access private repositories, set github.password, github.token or export GITHUB_PASSWORD\n")
+         sys.stderr.write("For help on oauth based token authentication see https://help.github.com/articles/creating-an-oauth-token-for-command-line-use\n")
       user = None
 
    # Make the connection to Github here.

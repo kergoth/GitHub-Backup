@@ -54,7 +54,16 @@ def main():
          repo_type = repo_type[6:]
          gistsdir = args.gistsdir.format(repo_type=repo_type)
          for repo in repos:
-            clone(repo.git_pull_url, os.path.join(gistsdir, repo.id), name=repo.id, mirror=args.mirror)
+            if repo_type == 'starred':
+               if repo.user.login == args.username:
+                  # We already have our own gists
+                  continue
+               else:
+                  name = '%s/%s' % (repo.user.login, repo.id)
+            else:
+               name = repo.id
+
+            clone(repo.git_pull_url, os.path.join(gistsdir, name), name=name, mirror=args.mirror)
       else:
          repodir = args.repodir.format(repo_type=repo_type)
          for repo in repos:
@@ -62,7 +71,13 @@ def main():
                url = repo.ssh_url
             else:
                url = repo.clone_url
-            clone(url, os.path.join(repodir, repo.name), name=repo.full_name, mirror=args.mirror)
+
+            if repo_type == 'watched':
+               name = repo.full_name
+            else:
+               name = repo.name
+
+            clone(url, os.path.join(repodir, name), name=repo.full_name, mirror=args.mirror)
 
 
 def get_repositories(github, auth_user, username):

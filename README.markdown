@@ -8,7 +8,8 @@ GitHub-Backup makes a local backup copy of all of a github user's  (or github or
 
 Usage
 -----
-"./github-backup.py USERNAME BACKUPDIR [-c|--cron] [-h|--help]"
+
+    github-backup.py [-h] [-r REPODIR] [-g GISTSDIR] [-m] [-s] username
 
 Then, put it in a cron job somewhere and forget about it for eternity.
 

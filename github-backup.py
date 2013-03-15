@@ -73,7 +73,7 @@ def main():
                url = repo.clone_url
 
             if repo_type == 'watched':
-               if repo.user.login == args.username:
+               if repo.owner.login == args.username:
                   # We already have our own repos
                   continue
                else:

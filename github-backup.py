@@ -58,7 +58,11 @@ def main():
       else:
          repodir = args.repodir.format(repo_type=repo_type)
          for repo in repos:
-            clone(repo.clone_url, os.path.join(repodir, repo.name), name=repo.full_name, mirror=args.mirror)
+            if args.ssh:
+               url = repo.ssh_url
+            else:
+               url = repo.clone_url
+            clone(url, os.path.join(repodir, repo.name), name=repo.full_name, mirror=args.mirror)
 
 
 def get_repositories(github, auth_user, username):
@@ -106,6 +110,8 @@ def init_parser():
    parser.add_argument("-g", "--gistsdir", default="./{username}/gists/{repo_type}",
          help="The folder where you want your backup gists to go (Default: %(default)s)")
    parser.add_argument("-m","--mirror", help="Use the --mirror option when cloning",
+      action="store_true")
+   parser.add_argument("-s","--ssh", help="Clone using ssh rather than https",
       action="store_true")
    return parser
 
